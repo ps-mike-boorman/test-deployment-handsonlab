@@ -12,7 +12,7 @@
     consistently on ingestion. Numeric fields receive the _d suffix.
 
     Field mapping:
-      SecurityEvents_CL  : EventID_d, LogonType_d, HostName_s, TargetAccount_s, SourceIP_s, LogonDesc_s
+      SecurityEvents_CL  : EventID_d, LogonType_d, HostName_s, TargetAccount_s, SrcIpAddr_s, LogonDesc_s
       AppServiceHTTPLogs_CL : ScStatus_d, TimeTaken_d, HttpMethod_s, RequestPath_s, HostHeader_s
 
 .PARAMETER WorkspaceId
@@ -96,12 +96,12 @@ function Send-LogData {
 # EventID and LogonType are numeric and receive the _d suffix.
 # ---------------------------------------------------------------------------
 $securityEvents = @(
-    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\administrator'; EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SourceIP = '203.0.113.42' },
-    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\admin';         EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SourceIP = '198.51.100.17' },
-    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\root';          EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SourceIP = '203.0.113.88' },
-    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\testuser';      EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SourceIP = '198.51.100.23' },
-    @{ HostName = 'ops-vm-01'; TargetAccount = 'opsadmin';              EventID = 4624; LogonDesc = 'An account was successfully logged on'; LogonType = 3; SourceIP = '10.0.0.5' },
-    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\sysadmin';      EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SourceIP = '203.0.113.99' }
+    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\administrator'; EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SrcIpAddr = '203.0.113.42' },
+    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\admin';         EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SrcIpAddr = '198.51.100.17' },
+    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\root';          EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SrcIpAddr = '203.0.113.88' },
+    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\testuser';      EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SrcIpAddr = '198.51.100.23' },
+    @{ HostName = 'ops-vm-01'; TargetAccount = 'opsadmin';              EventID = 4624; LogonDesc = 'An account was successfully logged on'; LogonType = 3; SrcIpAddr = '10.0.0.5' },
+    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\sysadmin';      EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SrcIpAddr = '203.0.113.99' }
 ) | ConvertTo-Json
 
 Send-LogData -WorkspaceId $WorkspaceId -WorkspaceKey $WorkspaceKey -Body $securityEvents -LogType 'SecurityEvents'
