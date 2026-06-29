@@ -8,10 +8,12 @@
       - SecurityEvents_CL  : Simulated Windows Security event log entries (failed logins, Event ID 4625)
       - AppServiceHTTPLogs_CL : Simulated App Service HTTP access log entries (404 errors)
 
-    Field names in custom tables receive a type suffix on ingestion:
-      - Numeric fields  -> _d  (e.g., EventID_d, ScStatus_d, TimeTaken_d)
-      - String fields   -> _s  (e.g., Computer_s, Account_s, CsUriStem_s)
-      - TimeGenerated is a reserved field and receives no suffix.
+    All string fields use clearly custom names to ensure the _s type suffix is applied
+    consistently on ingestion. Numeric fields receive the _d suffix.
+
+    Field mapping:
+      SecurityEvents_CL  : EventID_d, LogonType_d, HostName_s, TargetAccount_s, SourceIP_s, LogonDesc_s
+      AppServiceHTTPLogs_CL : ScStatus_d, TimeTaken_d, HttpMethod_s, RequestPath_s, HostHeader_s
 
 .PARAMETER WorkspaceId
     The Log Analytics workspace GUID (customerId). Passed by the ARM template at deploy time.
@@ -20,8 +22,7 @@
     The Log Analytics workspace primary shared key. Passed by the ARM template via protectedSettings.
 
 .NOTES
-    Repository : ps-mike-boorman/azure-compute-labs
-    Path       : lab05-monitor/seed-logs.ps1
+    Repository : ps-mike-boorman/test-deployment-handsonlab
     Lab        : LAB05 - Monitor and Analyze Compute Workloads in Azure
 #>
 
@@ -74,153 +75,51 @@ function Send-LogData {
 
     $uri     = 'https://' + $WorkspaceId + '.ods.opinsights.azure.com' + $resource + '?api-version=2016-04-01'
     $headers = @{
-        'Authorization'        = 'SharedKey ' + $WorkspaceId + ':' + $signature
-        'Log-Type'             = $LogType
-        'x-ms-date'            = $rfc1123Date
-        'time-generated-field' = 'TimeGenerated'
+        'Authorization' = 'SharedKey ' + $WorkspaceId + ':' + $signature
+        'Log-Type'      = $LogType
+        'x-ms-date'     = $rfc1123Date
     }
 
     try {
         $null = Invoke-RestMethod -Uri $uri -Method POST -ContentType $contentType -Headers $headers -Body $Body
-        Write-Output "[$LogType] Seeded successfully."
+        Write-Output ('[' + $LogType + '] Seeded successfully.')
     }
     catch {
-        Write-Warning "[$LogType] Seed failed: $_"
+        Write-Warning ('[' + $LogType + '] Seed failed: ' + $_)
     }
 }
 
-$now = [DateTime]::UtcNow
-
 # ---------------------------------------------------------------------------
 # SecurityEvents_CL
-# Simulates Windows Security event log entries that Azure Monitor Agent would
-# route to the SecurityEvent table in a production environment. Includes five
-# failed login attempts (Event ID 4625) from external IPs and one successful
-# internal logon (Event ID 4624) for contrast.
+# Simulates Windows Security event log entries. Field names are deliberately
+# non-generic to ensure the _s type suffix is applied reliably on ingestion.
+# EventID and LogonType are numeric and receive the _d suffix.
 # ---------------------------------------------------------------------------
 $securityEvents = @(
-    @{
-        TimeGenerated = $now.AddMinutes(-55).ToString('o')
-        Computer      = 'ops-vm-01'
-        Account       = 'UNKNOWN\administrator'
-        EventID       = 4625
-        Activity      = 'An account failed to log on'
-        LogonType     = 10
-        IpAddress     = '203.0.113.42'
-    },
-    @{
-        TimeGenerated = $now.AddMinutes(-50).ToString('o')
-        Computer      = 'ops-vm-01'
-        Account       = 'UNKNOWN\admin'
-        EventID       = 4625
-        Activity      = 'An account failed to log on'
-        LogonType     = 10
-        IpAddress     = '198.51.100.17'
-    },
-    @{
-        TimeGenerated = $now.AddMinutes(-45).ToString('o')
-        Computer      = 'ops-vm-01'
-        Account       = 'UNKNOWN\root'
-        EventID       = 4625
-        Activity      = 'An account failed to log on'
-        LogonType     = 10
-        IpAddress     = '203.0.113.88'
-    },
-    @{
-        TimeGenerated = $now.AddMinutes(-40).ToString('o')
-        Computer      = 'ops-vm-01'
-        Account       = 'UNKNOWN\testuser'
-        EventID       = 4625
-        Activity      = 'An account failed to log on'
-        LogonType     = 10
-        IpAddress     = '198.51.100.23'
-    },
-    @{
-        TimeGenerated = $now.AddMinutes(-35).ToString('o')
-        Computer      = 'ops-vm-01'
-        Account       = 'opsadmin'
-        EventID       = 4624
-        Activity      = 'An account was successfully logged on'
-        LogonType     = 3
-        IpAddress     = '10.0.0.5'
-    },
-    @{
-        TimeGenerated = $now.AddMinutes(-30).ToString('o')
-        Computer      = 'ops-vm-01'
-        Account       = 'UNKNOWN\sysadmin'
-        EventID       = 4625
-        Activity      = 'An account failed to log on'
-        LogonType     = 10
-        IpAddress     = '203.0.113.99'
-    }
+    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\administrator'; EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SourceIP = '203.0.113.42' },
+    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\admin';         EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SourceIP = '198.51.100.17' },
+    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\root';          EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SourceIP = '203.0.113.88' },
+    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\testuser';      EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SourceIP = '198.51.100.23' },
+    @{ HostName = 'ops-vm-01'; TargetAccount = 'opsadmin';              EventID = 4624; LogonDesc = 'An account was successfully logged on'; LogonType = 3; SourceIP = '10.0.0.5' },
+    @{ HostName = 'ops-vm-01'; TargetAccount = 'UNKNOWN\sysadmin';      EventID = 4625; LogonDesc = 'An account failed to log on'; LogonType = 10; SourceIP = '203.0.113.99' }
 ) | ConvertTo-Json
 
 Send-LogData -WorkspaceId $WorkspaceId -WorkspaceKey $WorkspaceKey -Body $securityEvents -LogType 'SecurityEvents'
 
 # ---------------------------------------------------------------------------
 # AppServiceHTTPLogs_CL
-# Simulates App Service HTTP access log entries that App Service diagnostic
-# settings would route to the AppServiceHTTPLogs table in a production
-# environment. Includes five 404 responses across various paths and one 200
-# for contrast.
+# Simulates App Service HTTP access log entries. ScStatus and TimeTaken are
+# numeric (_d suffix). HttpMethod, RequestPath, and HostHeader are strings
+# (_s suffix).
 # ---------------------------------------------------------------------------
 $httpLogs = @(
-    @{
-        TimeGenerated = $now.AddMinutes(-62).ToString('o')
-        CsMethod      = 'GET'
-        CsUriStem     = '/api/users/9999'
-        ScStatus      = 404
-        TimeTaken     = 245
-        CsHost        = 'ops-webapp.azurewebsites.net'
-    },
-    @{
-        TimeGenerated = $now.AddMinutes(-57).ToString('o')
-        CsMethod      = 'GET'
-        CsUriStem     = '/products/deleted-item'
-        ScStatus      = 404
-        TimeTaken     = 198
-        CsHost        = 'ops-webapp.azurewebsites.net'
-    },
-    @{
-        TimeGenerated = $now.AddMinutes(-52).ToString('o')
-        CsMethod      = 'POST'
-        CsUriStem     = '/api/orders/0'
-        ScStatus      = 404
-        TimeTaken     = 312
-        CsHost        = 'ops-webapp.azurewebsites.net'
-    },
-    @{
-        TimeGenerated = $now.AddMinutes(-47).ToString('o')
-        CsMethod      = 'GET'
-        CsUriStem     = '/images/logo-old.png'
-        ScStatus      = 404
-        TimeTaken     = 156
-        CsHost        = 'ops-webapp.azurewebsites.net'
-    },
-    @{
-        TimeGenerated = $now.AddMinutes(-42).ToString('o')
-        CsMethod      = 'GET'
-        CsUriStem     = '/api/users/1'
-        ScStatus      = 200
-        TimeTaken     = 89
-        CsHost        = 'ops-webapp.azurewebsites.net'
-    },
-    @{
-        TimeGenerated = $now.AddMinutes(-37).ToString('o')
-        CsMethod      = 'GET'
-        CsUriStem     = '/about/old-page'
-        ScStatus      = 404
-        TimeTaken     = 201
-        CsHost        = 'ops-webapp.azurewebsites.net'
-    },
-    @{
-        TimeGenerated = $now.AddMinutes(-32).ToString('o')
-        CsMethod      = 'DELETE'
-        CsUriStem     = '/api/items/xyz'
-        ScStatus      = 404
-        TimeTaken     = 178
-        CsHost        = 'ops-webapp.azurewebsites.net'
-    }
+    @{ HttpMethod = 'GET';    RequestPath = '/api/users/9999';       ScStatus = 404; TimeTaken = 245; HostHeader = 'ops-webapp.azurewebsites.net' },
+    @{ HttpMethod = 'GET';    RequestPath = '/products/deleted-item'; ScStatus = 404; TimeTaken = 198; HostHeader = 'ops-webapp.azurewebsites.net' },
+    @{ HttpMethod = 'POST';   RequestPath = '/api/orders/0';          ScStatus = 404; TimeTaken = 312; HostHeader = 'ops-webapp.azurewebsites.net' },
+    @{ HttpMethod = 'GET';    RequestPath = '/images/logo-old.png';   ScStatus = 404; TimeTaken = 156; HostHeader = 'ops-webapp.azurewebsites.net' },
+    @{ HttpMethod = 'GET';    RequestPath = '/api/users/1';           ScStatus = 200; TimeTaken = 89;  HostHeader = 'ops-webapp.azurewebsites.net' },
+    @{ HttpMethod = 'GET';    RequestPath = '/about/old-page';        ScStatus = 404; TimeTaken = 201; HostHeader = 'ops-webapp.azurewebsites.net' },
+    @{ HttpMethod = 'DELETE'; RequestPath = '/api/items/xyz';         ScStatus = 404; TimeTaken = 178; HostHeader = 'ops-webapp.azurewebsites.net' }
 ) | ConvertTo-Json
 
 Send-LogData -WorkspaceId $WorkspaceId -WorkspaceKey $WorkspaceKey -Body $httpLogs -LogType 'AppServiceHTTPLogs'
